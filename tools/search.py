@@ -1,5 +1,5 @@
 import os, sys, gc, logging, requests
-from typing import TypedDict, List
+from typing import Dict, List
 
 from dotenv import load_dotenv
 from langchain_google_community import GoogleSearchAPIWrapper
@@ -86,20 +86,13 @@ class WebFinder:
         urls = [r["link"] for r in search_results if "link" in r]
         if not urls:
             return []
+        log.info("Scrapeando")
         return await self.crawl_urls(urls)
 
-if __name__ == "__main__":
-    import asyncio
+    def _parse_contents(self, pages: List[str]) -> List[Dict]:
+        """Parsea cada página y devuelve lista de diccionarios."""
+        return [self._parse_markdown(md) for md in pages]
     
-    async def test_search():
-        finder = WebFinder()
-        results = await finder.find_and_crawl("Python programming", num_results=2)
-        print("\nResultados encontrados:")
-        for i, result in enumerate(results, 1):
-            print(f"\n--- Resultado {i} ---")
-            print(result[:500] + "..." if len(result) > 500 else result)
-    
-    asyncio.run(test_search())
     
     
     

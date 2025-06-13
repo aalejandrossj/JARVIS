@@ -1,16 +1,12 @@
-import os
-import ssl
-import json
-import asyncio
-import logging
-import uvicorn
+import os, uvicorn, json, asyncio, logging, ssl
 from fastapi import FastAPI, WebSocket
 from websockets import connect as ws_connect
-
-from config.prompt import AGENT_PROMPT  # Prompt de sistema
-from config.dispositivos import DEVICE_IPS # Diccionario nombre → IP
-from tools.iot import IOT               # Control IoT
 from dotenv import load_dotenv
+import asyncio, sys
+from config.prompt import AGENT_PROMPT  # Prompt de sistema
+from tools.functions import TOOLS # lista de tools
+from tools.tools import control_device, search #funciones para las tools
+
 
 
 load_dotenv()
@@ -45,29 +41,7 @@ ssl_ctx.verify_mode = ssl.CERT_NONE
 # FastAPI ---------------------------------------------------------------------
 app = FastAPI()
 
-TOOLS = [
-    {
-        "type": "function",
-        "name": "control_device",
-        "description": "Controla dispositivos domóticos Tapo (enciende/apaga alternando el estado)",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "device_name": {
-                    "type": "string",
-                    "description": "Nombre del dispositivo a controlar (ej: 'luz habitación', 'televisor cocina', 'calefactor cocina')"
-                },
-                "state": {
-                    "type": "string",
-                    "state": "Estado al que se quiere pasar el dispositivo, siempre sera encendido, apagado"
-                }
-            },
-            "required": ["device_name", "state"]
-        }
-    }
-]
-
-# Funciones auxiliares --------------------------------------------------------
+# Parsear eventos de openai
 
 def parse_openai_event(raw: str | bytes):
     if isinstance(raw, bytes):
@@ -83,28 +57,6 @@ def parse_openai_event(raw: str | bytes):
         return None
     return evt if isinstance(evt, dict) else None
 
-
-async def control_device(device_name: str, state: str) -> str:
-    """Recibe nombre de dispositivo, ejecuta toggle y devuelve estado ('on'/'off')."""
-    log.info(f"Intentando controlar dispositivo: {device_name}")
-    
-    desired_state = state
-
-    ip = DEVICE_IPS.get(device_name.lower())
-    if not ip:
-        log.error(f"Dispositivo '{device_name}' no encontrado en DEVICE_IPS")
-        return "unknown-device"
-    
-    log.info(f"IP encontrada para '{device_name}': {ip}")
-    
-    try:
-        iot = IOT()
-        state = await iot.toggle_device_async(ip, desired_state)
-        log.info(f"Dispositivo '{device_name}' controlado exitosamente. Estado: {'encendido' if state else 'apagado'}")
-        return "on" if state else "off"
-    except Exception as e:
-        log.error(f"Error controlando {device_name}: {e}")
-        return f"error: {e}"
 
 # WebSocket /chat -------------------------------------------------------------
 
@@ -204,15 +156,19 @@ async def chat_endpoint(client_ws: WebSocket):
 
                 elif etype == "response.output_item.done":
                     item = evt.get("item", {})
-                    if item.get("type") == "function_call" and item.get("name") == "control_device":
-                        args = json.loads(item.get("arguments", "{}"))
-                        device_name = args.get("device_name", "")
-                        state = args.get("state", "")
-                        print(state)
-                        log.info("Ejecutando control_device con nombre=%s", device_name)
-                        result = await control_device(device_name, state)
-                        
-                        # Enviar resultado de la función
+                    if item.get("type") == "function_call":
+                        try:
+                            name = item.get("name")
+                            if name == "control_device":
+                                args = json.loads(item.get("arguments", "{}"))
+                                result = await control_device(args.get("device_name", ""), args.get("state", ""))
+                            elif name == "web_search":
+                                args = json.loads(item.get("arguments", "{}"))
+                                result = await search(args.get("text", ""))
+                            else:
+                                result = f"Función desconocida: {name}"
+                        except Exception as e:
+                            result = str(e)
                         await openai_ws.send(json.dumps({
                             "type": "conversation.item.create",
                             "item": {
@@ -222,6 +178,7 @@ async def chat_endpoint(client_ws: WebSocket):
                             },
                         }))
                         await openai_ws.send(json.dumps({"type": "response.create"}))
+
 
                 elif etype == "error":
                     await client_ws.send_json({"type": "error", "error": evt.get("error")})
@@ -243,5 +200,9 @@ async def chat_endpoint(client_ws: WebSocket):
 
 # Entrypoint ------------------------------------------------------------------
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+    cfg = uvicorn.Config("main:app", host="0.0.0.0", port=8000, reload=True)
+    server = uvicorn.Server(cfg)
+    asyncio.run(server.serve())
