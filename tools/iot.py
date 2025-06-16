@@ -3,6 +3,7 @@ import os
 from tapo import ApiClient
 import logging
 from miio import Yeelight
+from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class IOT:
         return await api.p100(ip)
 
     @staticmethod
-    async def toggle_device_async(ip: str, state: str, brand: str) -> bool:
+    async def toggle_device_async(ip: str, state: str, brand: str, color: Optional[str] = None) -> bool:
         """
         Cambia el estado del dispositivo (True = encendido, False = apagado).
 
@@ -58,32 +59,34 @@ class IOT:
                 raise
 
         elif brand == "yeelight":
-            if state not in ("encendido", "apagado"):
-                raise ValueError("state debe ser 'encendido' o 'apagado'")
-            
-            token = os.getenv("TOKENYEELIGHT")
-            if not token:
-                raise ValueError("Debes definir TOKENYEELIGHT en las variables de entorno")
-
-            luz = Yeelight(ip, token)
+            token = os.getenv("TOKENYEELIGHT") or \
+                    ValueError("TOKENYEELIGHT no definido")
+            bulb = Yeelight(ip, token)
 
             try:
-                info = luz.status()            # estado actual
-                desired_on = state == "encendido"
+                if color:                      # cambiar color
+                    r, g, b = map(int, color.split(","))
+                    bulb.on()
+                    bulb.set_rgb((r, g, b))
+                    return True
+                else:
+                    info = bulb.status()            # estado actual
+                    desired_on = state == "encendido"
 
-                log.info(
-                    "Estado actual de %s: %s",
-                    ip,
-                    "encendido" if info.is_on else "apagado",
-                )
+                    log.info(
+                        "Estado actual de %s: %s",
+                        ip,
+                        "encendido" if info.is_on else "apagado",
+                    )
 
-                if info.is_on == desired_on:
-                    raise ValueError(f"La luz ya está {state}")
+                    if info.is_on == desired_on:
+                        raise ValueError(f"La luz ya está {state}")
 
-                luz.on() if desired_on else luz.off()
-                log.info("Luz %s %s", ip, "encendida" if desired_on else "apagada")
-                return desired_on
+                    bulb.on() if desired_on else bulb.off()
+                    log.info("Luz %s %s", ip, "encendida" if desired_on else "apagada")
+                    return desired_on
 
-            except Exception:
-                log.error(f"Error controlando dispositivo {ip}: {e}")
-                raise
+            except Exception as e:
+                log.error("Error controlando dispositivo %s: %s", ip, e)
+                raise                       # vuelve a propagar si lo necesitas
+

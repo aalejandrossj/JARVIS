@@ -18,7 +18,11 @@ TOOLS = [
           "type": "string",
           "description": "Estado al que se quiere pasar el dispositivo",
           "enum": ["encendido", "apagado"]
-        }
+        },
+        "color": {
+        "type": "string",
+        "description": "Nuevo color en formato \"R,G,B\" (0-255). Solo válido para luces Yeelight, si no se especifica, se mantiene el color actual"
+      }
       },
       "required": ["device_name", "state"]
     }

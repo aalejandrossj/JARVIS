@@ -161,7 +161,7 @@ async def chat_endpoint(client_ws: WebSocket):
                             name = item.get("name")
                             if name == "control_device":
                                 args = json.loads(item.get("arguments", "{}"))
-                                result = await control_device(args.get("device_name", ""), args.get("state", ""))
+                                result = await control_device(args.get("device_name", ""), args.get("state", ""), args.get("color", ""))
                             elif name == "web_search":
                                 args = json.loads(item.get("arguments", "{}"))
                                 result = await search(args.get("text", ""))

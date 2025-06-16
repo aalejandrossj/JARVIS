@@ -4,6 +4,7 @@ from tools.search import WebFinder
 from utils.dispositivos import DEVICE_IPS 
 import json
 from tools.limpieza import run
+from typing import Optional
 
 # Logging --------------------------------------------------------------------
 logging.basicConfig(
@@ -13,26 +14,20 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-async def control_device(device_name: str, state: str) -> str:
-    """Recibe nombre de dispositivo, ejecuta toggle y devuelve estado ('on'/'off')."""
-    log.info(f"Intentando controlar dispositivo: {device_name}")
-    
-    desired_state = state
+async def control_device(device_name: str, state: str, color: Optional[str] = None) -> str:
+    log.info("Intentando controlar dispositivo: %s", device_name)
 
-    ip, brand = DEVICE_IPS.get(device_name.lower())
-    if not ip or not brand:
-        log.error(f"Dispositivo '{device_name}' no encontrado en DEVICE_IPS")
+    ip, brand = DEVICE_IPS.get(device_name.lower(), (None, None))
+    if not ip:
+        log.error("Dispositivo '%s' no encontrado", device_name)
         return "unknown-device"
-    
-    log.info(f"IP encontrada para '{device_name}': {ip}")
-    
+
+    iot = IOT()
     try:
-        iot = IOT()
-        state = await iot.toggle_device_async(ip, desired_state, brand)
-        log.info(f"Dispositivo '{device_name}' controlado exitosamente. Estado: {'encendido' if state else 'apagado'}")
-        return "on" if state else "off"
+        final_state = await iot.toggle_device_async(ip, state, brand, color)
+        return "on" if final_state else "off"
     except Exception as e:
-        log.error(f"Error controlando {device_name}: {e}")
+        log.error("Error controlando %s: %s", device_name, e)
         return f"error: {e}"
     
 async def search(text: str):
@@ -48,6 +43,7 @@ async def search(text: str):
 def limpieza(status: str):
     try:
         log.info(f"Limpieza: {status}")
+        run(status)
         return f"Se ha {status} el robot aspirador"           
     except Exception as e:
         log.exception(e)
