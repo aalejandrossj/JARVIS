@@ -3,9 +3,9 @@ from fastapi import FastAPI, WebSocket
 from websockets import connect as ws_connect
 from dotenv import load_dotenv
 import asyncio, sys
-from config.prompt import AGENT_PROMPT  # Prompt de sistema
-from tools.functions import TOOLS # lista de tools
-from tools.tools import control_device, search #funciones para las tools
+from utils.prompt import AGENT_PROMPT  # Prompt de sistema
+from utils.functions import TOOLS # lista de tools
+from tools.tools import control_device, search, limpieza #funciones para las tools
 
 
 
@@ -165,6 +165,9 @@ async def chat_endpoint(client_ws: WebSocket):
                             elif name == "web_search":
                                 args = json.loads(item.get("arguments", "{}"))
                                 result = await search(args.get("text", ""))
+                            elif name == "limpieza":
+                                args = json.loads(item.get("arguments", "{}"))
+                                result = limpieza(args.get("status", ""))
                             else:
                                 result = f"Función desconocida: {name}"
                         except Exception as e:

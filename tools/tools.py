@@ -1,8 +1,9 @@
 import logging, asyncio
 from tools.iot import IOT
 from tools.search import WebFinder
-from config.dispositivos import DEVICE_IPS 
+from utils.dispositivos import DEVICE_IPS 
 import json
+from tools.limpieza import run
 
 # Logging --------------------------------------------------------------------
 logging.basicConfig(
@@ -18,8 +19,8 @@ async def control_device(device_name: str, state: str) -> str:
     
     desired_state = state
 
-    ip = DEVICE_IPS.get(device_name.lower())
-    if not ip:
+    ip, brand = DEVICE_IPS.get(device_name.lower())
+    if not ip or not brand:
         log.error(f"Dispositivo '{device_name}' no encontrado en DEVICE_IPS")
         return "unknown-device"
     
@@ -27,7 +28,7 @@ async def control_device(device_name: str, state: str) -> str:
     
     try:
         iot = IOT()
-        state = await iot.toggle_device_async(ip, desired_state)
+        state = await iot.toggle_device_async(ip, desired_state, brand)
         log.info(f"Dispositivo '{device_name}' controlado exitosamente. Estado: {'encendido' if state else 'apagado'}")
         return "on" if state else "off"
     except Exception as e:
@@ -44,7 +45,10 @@ async def search(text: str):
         log.exception(e)
         return f"error: {e}"
     
-
-if __name__ == "__main__":
-    result = asyncio.run(search("hola"))
-    print(result)
+def limpieza(status: str):
+    try:
+        log.info(f"Limpieza: {status}")
+        return f"Se ha {status} el robot aspirador"           
+    except Exception as e:
+        log.exception(e)
+        return f"error: {e}"

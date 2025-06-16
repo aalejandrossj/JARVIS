@@ -1,14 +1,18 @@
+from utils.dispositivos import DEVICE_IPS
+
+names = [name for name in DEVICE_IPS.keys()]
+
 TOOLS = [
   {
     "type": "function",
     "name": "control_device",
-    "description": "Controla dispositivos domóticos Tapo: enciende o apaga según el estado indicado",
+    "description": "Controla dispositivos domóticos: enciende o apaga según el estado indicado",
     "parameters": {
       "type": "object",
       "properties": {
         "device_name": {
           "type": "string",
-          "description": "Nombre del dispositivo a controlar (p. ej. 'luz habitación', 'televisor cocina', 'calefactor cocina')"
+          "description": f"Nombre del dispositivo a controlar (p. ej. {', '.join(names)})"
         },
         "state": {
           "type": "string",
@@ -34,5 +38,22 @@ TOOLS = [
       },
       "required": ["text"]
     }
+  },
+  {
+    "type": "function",
+    "name": "limpieza",
+    "description": "Controla la limpieza del robot aspirador",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Estado al que se quiere pasar el dispositivo",
+          "enum": ["encendido", "apagado", "volver_a_base"]
+        }
+      },
+      "required": ["status"]
+    }
   }
 ]
+

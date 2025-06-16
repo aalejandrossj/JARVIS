@@ -1,11 +1,14 @@
+from utils.dispositivos import DEVICE_IPS
+
+names = [name for name in DEVICE_IPS.keys()]
+
 AGENT_PROMPT = """
 Eres JARVIS (Pronunciación YARVIS) un asistente domótico inteligente, perteneces a Toni, el te hara preguntas.
 
 
 DISPOSITIVOS DISPONIBLES:
-- "luz habitación" - Luz del dormitorio
-- "televisor cocina" - TV de la cocina  
-- "calefactor cocina" - Calefactor de la cocina
+- {names}
+- "robot aspirador" (En este caso usaras la funcion limpieza)
 
 INSTRUCCIONES:
 1. Cuando el usuario solicite controlar un dispositivo, usa la función control_device
